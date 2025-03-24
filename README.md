@@ -4,7 +4,7 @@ This is a *Postman Clone* dedicated to reaching government cloud endpoints of th
 It was developed in Visual Studio using MAUI Hybrid (Blazor) for .NET 8.  
 
 
-## Windows Installation Instructions (Build From Source)
+## Build From Source Windows
 1. Download the Zip file of repo
 2. Extract the contents
 3. open a cmd prompt in the solution directory
@@ -12,6 +12,12 @@ It was developed in Visual Studio using MAUI Hybrid (Blazor) for .NET 8.
 5. Navigate to the publish directory within the solution: ```./GovGraphExplorerMaui/bin/Release/net8.0-windows10.0.19041.0/win10-x64/publish```
 6. Double-click on ```GovGraphExplorerMaui.exe``` to run and install the Program.
 *Note: It will not work until you enter your app registration details.*
+
+## OR Download and Install from Latest Release
+1. Click on Release in Github in the Right-hand pane
+2. Find the latest version and download the gov_graph_explorer_vX.X.X.zip zip file
+3. Extract the contents
+4. Navigate within the publish directory and double-click on ```GovGraphExplorerMaui.exe``` to run and install the Program.
 
 ## Setting Up Authentication within your Tenant
 To get an access token to access your tenant's data, you need to create a web app registration in Entra Id and assign any graph API permissions to be used in the tool.  
