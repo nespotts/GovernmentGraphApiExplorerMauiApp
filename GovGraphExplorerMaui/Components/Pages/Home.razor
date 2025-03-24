@@ -1,0 +1,381 @@
+﻿@page "/"
+@using Microsoft.Extensions.DependencyInjection
+@using System.Text.Json
+@using System.Text.Encodings.Web
+@inject AccessTokenService accessTokenService
+@inject GraphExplorerService graphExplorerService
+@inject IJSRuntime js
+@inject IConfiguration config
+@inject IServiceProvider ServiceProvider
+@inject TimeoutManager timeoutManager
+@implements IAsyncDisposable
+
+<PageTitle>Gov Graph Explorer</PageTitle>
+
+<div class="mx-1 d-flex flex-row align-items-start justify-content-between">
+    <div class="d-flex flex-row align-items-center gap-3">
+        <img src="/images/graph_api_logo3.png" alt="Graph API Logo" width="35" />
+        <h1 class="h2 m-0 p-0">Government Graph Explorer Tool</h1>
+    </div>
+    <div clas="me-3">
+        <a class="me-3" href="https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=http" target="_blank">$filter Docs</a>
+        <a class="me-3" href="https://learn.microsoft.com/en-us/graph/search-query-parameter?tabs=http" target="_blank">$search Docs</a>
+        <a class="me-3" href="https://learn.microsoft.com/en-us/graph/query-parameters?tabs=http#orderby-parameter:~:text=in%20all%20formats.-,orderby,-parameter" target="_blank">$orderby Docs</a>
+    </div>
+    <a href="https://developer.microsoft.com/en-us/graph/graph-explorer" target="_blank">Open Graph Explorer</a>
+</div>
+<hr />
+
+<div class="mb-2" style="width: 100%;">
+    <i class="d-block d-md-none ms-4">@AppSettings.GraphApi</i>
+    <div class="input-group" style="width: 100%;">
+
+        <div class="btn-group">
+            <button class="btn btn-outline-secondary dropdown-toggle rounded-0 rounded-start-3" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                @httpVerb
+            </button>
+            <ul class="dropdown-menu">
+                <li><button class="dropdown-item" type="button" @onclick="@(() => SetHttpVerbType("GET"))">GET</button></li>
+                <li><button class="dropdown-item" type="button" @onclick="@(() => SetHttpVerbType("POST"))">POST</button></li>
+                <li><button class="dropdown-item" type="button" @onclick="@(() => SetHttpVerbType("PUT"))">PUT</button></li>
+                <li><button class="dropdown-item" type="button" @onclick="@(() => SetHttpVerbType("PATCH"))">PATCH</button></li>
+                <li><button class="dropdown-item" type="button" @onclick="@(() => SetHttpVerbType("DELETE"))">DELETE</button></li>
+            </ul>
+        </div>
+
+        <span class="input-group-text d-none d-md-block align-middle text-center">
+            @AppSettings.GraphApi
+        </span>
+
+        <textarea spellcheck="false" autocapitalize="off" autocorrect="off" id="endpoint-textarea" class="form-control" rows="2" type="text" @bind="@endpoint" @bind:event="oninput"
+                  @onkeydown="OnInputKeyDown">
+        </textarea>
+
+        <button class="btn btn-primary" @onclick="GetJsonResponse">Send</button>
+    </div>
+
+</div>
+
+
+@* Tabs *@
+<ul class="nav nav-tabs mb-1" id="myTab" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="response-tab" data-bs-toggle="tab" data-bs-target="#response-tab-pane" type="button" role="tab">JSON Response</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="request-headers-tab" data-bs-toggle="tab" data-bs-target="#headers-tab-pane" type="button" role="tab">Request Headers</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="request-body-tab" data-bs-toggle="tab" data-bs-target="#body-tab-pane" type="button" role="tab">Request Body</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="access-token-tab" data-bs-toggle="tab" data-bs-target="#token-tab-pane" type="button" role="tab">AccessToken</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="query-history-tab" data-bs-toggle="tab" data-bs-target="#history-tab-pane" type="button" role="tab">Query History</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="example-tab" data-bs-toggle="tab" data-bs-target="#examples-tab-pane" type="button" role="tab">Example Queries</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="config-tab" data-bs-toggle="tab" data-bs-target="#config-tab-pane" type="button" role="tab">Configuration</button>
+    </li>
+</ul>
+
+@* Tab Panes *@
+<div class="tab-content" id="myTabContent">
+
+    <div class="tab-pane fade show active" id="response-tab-pane" role="tabpanel" tabindex="0">
+        <div class="overflow-auto border border-top-0 border-start-1 border-end-1 border-bottom-1 rounded-bottom-2 p-1"
+             style="width: calc(100vw - 40px); height: calc(100vh - 200px);">
+            <div><strong>@count</strong> Results Returned</div>
+            <pre class="text-break">@jsonResponse</pre>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="headers-tab-pane" role="tabpanel" tabindex="0">
+        <div class="d-flex flex-row align-items-center gap-4 mt-3">
+            <input type="text" @bind="@headerKey" class="form-control" placeholder="Key" />
+            <input type="text" @bind="@headerValue" class="form-control" placeholder="Value" />
+            <button class="btn btn-primary" @onclick="@AddHeaderParam">Add</button>
+        </div>
+
+        <hr />
+
+        <div class="overflow-auto d-block">
+            <table class="table table-striped table-hover" style="width: calc(100vw - 40px); max-height: calc(100vh - 200px);">
+                <thead>
+                    <tr>
+                        <th class="text-center">Key</th>
+                        <th class="text-center">Value</th>
+                        <th class="text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var header in headerParameters)
+                    {
+                        <tr>
+                            <td class="text-center align-middle">@header.Key</td>
+                            <td class="text-center align-middle">@header.Value</td>
+                            <td class="text-center align-middle">
+                                <button class="btn btn-danger" @onclick="() => headerParameters.Remove(header.Key)">Remove</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+    <div class="tab-pane fade" id="body-tab-pane" role="tabpanel" tabindex="0">
+        <span class="text-danger bg-danger-subtle px-2 rounded-2 ms-2 mb-2 @(invalidRequestBody ? "d-inline-block" : "d-none")">Invalid JSON</span>
+        <textarea id="request-body-textarea" class="form-control" autocapitalize="off" autocorrect="off" style="max-height: calc(100vh - 220px); height: calc(100vh - 220px);"
+                  @bind="@requestBody" @bind:event="oninput" @onkeyup="OnRequestBodyKeyUp">
+        </textarea>
+    </div>
+
+    <div class="tab-pane fade overflow-auto" id="token-tab-pane" role="tabpanel" tabindex="0">
+        <button class="btn btn-primary" @onclick="GetAccessToken">Get Access Token</button>
+        @if (accessToken is not null)
+        {
+            <h2>Access Token</h2>
+            <p class="w-100 text-break" style="width: calc(100vw - 40px); height: calc(100vh - 200px);">
+                @accessToken
+            </p>
+        }
+    </div>
+
+    <div class="tab-pane fade" id="history-tab-pane" role="tabpanel" tabindex="0">
+
+        <div class="overflow-auto d-block" style="width: calc(100vw - 40px); max-height: calc(100vh - 200px);">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th class="text-center">Http Verb</th>
+                        <th class="text-center">Query</th>
+                        <th class="text-center">Header Count</th>
+                        <th class="text-center">Request Body</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var query in QueryHistory.Reverse<QueryModel>())
+                    {
+                        <tr @onclick="@(() => SelectQuery(query))" style="cursor: pointer;" title="Select Query">
+                            <td class="text-center">@query.HttpVerb</td>
+                            <td>@query.Query</td>
+                            <td class="text-center">@query.HeaderParameters.Count</td>
+                            <td class="text-center">@query.GetAbbreviatedRequestBody(100)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <div class="tab-pane fade" id="examples-tab-pane" role="tabpanel" tabindex="0">
+        <div class="overflow-auto d-block" style="width: calc(100vw - 40px); max-height: calc(100vh - 200px);">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th class="text-center">Nickname</th>
+                        <th class="text-center">Http Verb</th>
+                        <th class="text-center">Query</th>
+                        <th class="text-center">Header Count</th>
+                        <th class="text-center">Request Body</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var query in Examples)
+                    {
+                        <tr @onclick="@(() => SelectQuery(query))" style="cursor: pointer;" title="Select Query">
+                            <td>@query.Nickname</td>
+                            <td class="text-center">@query.HttpVerb</td>
+                            <td>@query.Query</td>
+                            <td class="text-center">@query.HeaderParameters.Count</td>
+                            <td class="text-center">@query.GetAbbreviatedRequestBody(100)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="config-tab-pane" role="tabpanel" tabindex="0">
+        <div class="form-floating mb-1">
+            <input class="form-control" type="text" @bind="AppSettings.TokenBaseUrl" />
+            <label class="form-label">Token Base URL</label>
+        </div>
+        <div class="form-floating mb-1">
+            <input class="form-control" type="text" @bind="AppSettings.TenantId" />
+            <label class="form-label">Tenant Id</label>
+        </div>
+        <div class="form-floating mb-1">
+            <input class="form-control" type="text" @bind="AppSettings.ClientId" />
+            <label class="form-label">Client Id</label>
+        </div>
+        <div class="form-floating mb-1">
+            <input class="form-control" type="text" @bind="AppSettings.ClientSecret" />
+            <label class="form-label">Client Secret</label>
+        </div>
+        <div class="form-floating mb-1">
+            <input class="form-control" type="text" @bind="AppSettings.GraphApi" />
+            <label class="form-label">Graph API</label>
+        </div>
+        <div class="form-floating mb-1">
+            <input class="form-control" type="text" @bind="AppSettings.Scope" />
+            <label class="form-label">Scope</label>
+        </div>
+    </div>
+</div>
+
+
+
+@code {
+    private string? accessToken;
+    private string httpVerb = "GET";
+    private string endpoint = "/users?$top=999";
+    private string jsonResponse = "";
+    private int count = 0;
+    private string? headerKey;
+    private string? headerValue;
+    private bool invalidRequestBody = false;
+    private List<QueryModel> Examples = new();
+    private Dictionary<string, string> headerParameters = new Dictionary<string, string> { { "consistencyLevel", "eventual" } };
+    private string? requestBody;
+    private List<QueryModel> QueryHistory = new();
+    private IJSObjectReference? module;
+    private int timeoutId = 0;
+
+    protected override void OnInitialized()
+    {
+        GetAppSettings();
+
+        List<QueryModel>? examples = config.GetSection("ExampleQueries").Get<List<QueryModel>>();
+        if (examples is not null)
+        {
+            Examples = examples;
+        }
+    }
+
+    private void SelectQuery(QueryModel query)
+    {
+        httpVerb = query.HttpVerb;
+        endpoint = query.Query;
+        headerParameters = query.HeaderParameters;
+        requestBody = query.RequestBody;
+    }
+
+    private void SetHttpVerbType(string _httpVerb)
+    {
+        httpVerb = _httpVerb;
+    }
+
+    private void GetAppSettings()
+    {
+        // overwrite static class values with values from config file
+        var section = config.GetSection("AzureAd");
+        AppSettings.TokenBaseUrl = section.GetValue<string>("TokenBaseUrl")!;
+        AppSettings.TenantId = section.GetValue<string>("TenantId")!;
+        AppSettings.ClientId = section.GetValue<string>("ClientId")!;
+        AppSettings.ClientSecret = section.GetValue<string>("ClientSecret")!;
+        AppSettings.GraphApi = section.GetValue<string>("GraphApi")!;
+        AppSettings.Scope = section.GetValue<string>("Scope")!;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // import module
+        // initialize input listener
+        if (firstRender)
+        {
+            module = await js.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Home.razor.js");
+            await module.InvokeVoidAsync("initializeInputListener");
+        }
+    }
+
+
+    private async Task GetAccessToken(MouseEventArgs e)
+    {
+        accessToken = await accessTokenService.GetAccessToken();
+    }
+
+    private async Task GetJsonResponse()
+    {
+        jsonResponse = "Loading...";
+        StateHasChanged();
+        QueryHistory.Add(new QueryModel
+            {
+                HttpVerb = httpVerb,
+                Query = endpoint,
+                HeaderParameters = headerParameters.ToDictionary(x => x.Key, x => x.Value),
+                RequestBody = requestBody,
+            });
+        (jsonResponse, count, accessToken) = await graphExplorerService.GetGraphResponse(endpoint, httpVerb, headerParameters, requestBody);
+        StateHasChanged();
+    }
+    private async Task OnInputKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await GetJsonResponse();
+        }
+    }
+
+    private void AddHeaderParam()
+    {
+        if (string.IsNullOrEmpty(headerKey) || string.IsNullOrEmpty(headerValue) || headerParameters.ContainsKey(headerKey)) return;
+        headerParameters.Add(headerKey, headerValue);
+        headerKey = "";
+        headerValue = "";
+    }
+
+    private void OnRequestBodyKeyUp(KeyboardEventArgs e)
+    {
+        StateHasChanged();
+        if (e.Key == "Enter" || e.Key == "ArrowDown" || e.Key == "ArrowUp" || e.Key == "ArrowLeft" || e.Key == "ArrowRight" || e.Key == " ")
+        {
+            return;
+        }
+
+        timeoutManager.ClearTimeout(timeoutId);
+        timeoutId = timeoutManager.SetTimeout(async () =>
+        {
+            await InvokeAsync(() =>
+            {
+                RequestBodyPrettyPrint();
+                StateHasChanged();
+            });
+        }, 500);
+    }
+
+    private void RequestBodyPrettyPrint()
+    {
+        if (string.IsNullOrWhiteSpace(requestBody)) return;
+
+        var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
+        var formattedJson = requestBody;
+        try
+        {
+            formattedJson = JsonSerializer.Serialize(JsonDocument.Parse(requestBody), options);
+            requestBody = formattedJson;
+            invalidRequestBody = false;
+            StateHasChanged();
+        }
+        catch (Exception)
+        {
+            invalidRequestBody = true;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module is not null)
+            await module.DisposeAsync();
+    }
+
+}
