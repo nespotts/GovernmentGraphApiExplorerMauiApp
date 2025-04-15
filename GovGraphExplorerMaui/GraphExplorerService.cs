@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using static System.Formats.Asn1.AsnWriter;
 
@@ -99,7 +100,7 @@ public class GraphExplorerService {
             // get count of results if available
 
             // format json in pretty print
-            var options = new JsonSerializerOptions { WriteIndented = true };
+            var options = new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
             var formattedJson = result;
             JsonDocument? parsedResult = null;
             try {
@@ -117,7 +118,7 @@ public class GraphExplorerService {
             logger.LogWarning("Error: " + response.StatusCode);
             logger.LogWarning(result);
 
-            var options = new JsonSerializerOptions { WriteIndented = true };
+            var options = new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
             var formattedJson = result;
             try {
                 formattedJson = JsonSerializer.Serialize(JsonDocument.Parse(result), options);

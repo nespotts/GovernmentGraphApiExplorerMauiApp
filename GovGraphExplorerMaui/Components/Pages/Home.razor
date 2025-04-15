@@ -58,29 +58,35 @@
 
 
 @* Tabs *@
-<ul class="nav nav-tabs mb-1" id="myTab" role="tablist">
-    <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="response-tab" data-bs-toggle="tab" data-bs-target="#response-tab-pane" type="button" role="tab">JSON Response</button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="request-headers-tab" data-bs-toggle="tab" data-bs-target="#headers-tab-pane" type="button" role="tab">Request Headers</button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="request-body-tab" data-bs-toggle="tab" data-bs-target="#body-tab-pane" type="button" role="tab">Request Body</button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="access-token-tab" data-bs-toggle="tab" data-bs-target="#token-tab-pane" type="button" role="tab">AccessToken</button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="query-history-tab" data-bs-toggle="tab" data-bs-target="#history-tab-pane" type="button" role="tab">Query History</button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="example-tab" data-bs-toggle="tab" data-bs-target="#examples-tab-pane" type="button" role="tab">Example Queries</button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="config-tab" data-bs-toggle="tab" data-bs-target="#config-tab-pane" type="button" role="tab">Configuration</button>
-    </li>
-</ul>
+<div class="d-flex flex-row align-items-center justify-content-between">
+    <ul class="nav nav-tabs mb-1" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="response-tab" data-bs-toggle="tab" data-bs-target="#response-tab-pane" type="button" role="tab">JSON Response</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="request-headers-tab" data-bs-toggle="tab" data-bs-target="#headers-tab-pane" type="button" role="tab">Request Headers</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="request-body-tab" data-bs-toggle="tab" data-bs-target="#body-tab-pane" type="button" role="tab">Request Body</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="access-token-tab" data-bs-toggle="tab" data-bs-target="#token-tab-pane" type="button" role="tab">AccessToken</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="query-history-tab" data-bs-toggle="tab" data-bs-target="#history-tab-pane" type="button" role="tab">Query History</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="example-tab" data-bs-toggle="tab" data-bs-target="#examples-tab-pane" type="button" role="tab">Example Queries</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="config-tab" data-bs-toggle="tab" data-bs-target="#config-tab-pane" type="button" role="tab">Configuration</button>
+        </li>
+    </ul>
+
+    <button type="button" class="btn btn-sm btn-secondary active" data-bs-toggle="button" @onclick="@FormatJsonResponse">
+        Toggle Formatted JSON
+    </button>
+</div>
 
 @* Tab Panes *@
 <div class="tab-content" id="myTabContent">
@@ -89,7 +95,7 @@
         <div class="overflow-auto border border-top-0 border-start-1 border-end-1 border-bottom-1 rounded-bottom-2 p-1"
              style="width: calc(100vw - 40px); height: calc(100vh - 200px);">
             <div><strong>@count</strong> Results Returned</div>
-            <pre class="text-break">@jsonResponse</pre>
+            <pre class="text-break @(formattedJsonResponse ? "" : "text-wrap px-2")">@jsonResponse</pre>
         </div>
     </div>
 
@@ -246,6 +252,7 @@
     private List<QueryModel> QueryHistory = new();
     private IJSObjectReference? module;
     private int timeoutId = 0;
+    private bool formattedJsonResponse = true;
 
     protected override void OnInitialized()
     {
@@ -256,6 +263,11 @@
         {
             Examples = examples;
         }
+    }
+
+    private void FormatJsonResponse()
+    {
+        formattedJsonResponse = !formattedJsonResponse;
     }
 
     private void SelectQuery(QueryModel query)
